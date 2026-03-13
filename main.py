@@ -61,9 +61,15 @@ async def analyze(file: UploadFile = File(...)):
 
     try:
         y, sr = librosa.load(temp_path, sr=None, mono=True)
+        y, _ = librosa.effects.trim(y)
+
+        if y.size == 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Uploaded audio appears to be empty or silent."
+            )
 
         duration = librosa.get_duration(y=y, sr=sr)
-
         tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
 
         rms = librosa.feature.rms(y=y)
@@ -80,13 +86,11 @@ async def analyze(file: UploadFile = File(...)):
             "bpm": round(float(tempo), 2),
             "estimated_key": key,
             "energy": round(energy, 5),
-            "brightness": round(brightness, 2),
-            "suggested_genres": [
-                {"label": "hip hop / trap", "confidence": 0.35},
-                {"label": "r&b / melodic", "confidence": 0.20}
-            ],
-            "note": "Genre suggestions are placeholder MVP values for now."
+            "brightness": round(brightness, 2)
         }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Audio analysis failed: {str(e)}")
 
     finally:
         if os.path.exists(temp_path):
